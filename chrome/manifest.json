@@ -1,0 +1,41 @@
+{
+    "name": "Memento Tracer",
+    "description" : "Record Interactions to provide a template for Web Archiving a Web Page",
+    "version": "0.1.5",
+    "manifest_version": 2,
+    "browser_action": {
+    	"default_icon": "logo.png",
+    	"default_title": "Record Interactions"
+    },
+    "permissions": [
+    	"activeTab",
+    	"storage",
+    	"tabs",
+        "webRequest",
+    	"<all_urls>"
+    ],
+    "content_scripts": [
+        {
+            "matches": ["<all_urls>"],
+            "js": [
+                "lib/js/jquery.min.js",
+                "content_script.js"
+            ],
+            "run_at": "document_end"
+        },
+        {
+            "matches": ["<all_urls>"],
+            "js": [
+                "lib/js/recorder.js", 
+                "lib/js/recorder-handlers.js"
+            ],
+            "match_about_blank": true,
+            "all_frames": true
+        }
+
+    ],
+    "background": {
+        "scripts": ["background.js"]
+    },
+    "web_accessible_resources": ["popup.html"]
+}
