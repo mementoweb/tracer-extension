@@ -6,6 +6,8 @@ class Trace {
 		this.traceName = (!traceName) ? "" : traceName;
 		this._actions = {};
 		this._locationUrls = {};
+		this.uriPattern = "";
+		this.uriRegex = "";
 	}
 
 	set locationUrls(locationUrl) {
@@ -59,6 +61,46 @@ class Trace {
 		}
 		return null;
 	}
+
+	getShortestPath(eventId) {
+		let path = [];
+		let queue = [];
+		for (let eid in this._actions) {
+			queue.push(this._actions[eid]);
+		}
+		while (queue.length > 0) {
+			let currentEvent = queue.shift();
+			path.push(currentEvent.id);
+
+			if (currentEvent.id == eventId) {
+				return path.join(".");
+			}
+			else {
+				for (let eid in currentEvent.children) {
+					queue.push(currentEvent.children[eid]);
+				}
+			}
+		}
+		return null;
+	}
+
+	deleteEvent(eventId) {
+		let path = this.getShortestPath(eventId);
+		if (!path) {
+			return false;
+		}
+		let paths = path.split(".");
+		let currentEvent = this._actions[paths.shift()];
+
+		while (paths.length > 1) {
+			currentEvent = currentEvent.children[paths.shift()];
+		}
+		// JS wouldn't delete a top level variable, so we are deleting 
+		// at one property deep.
+		// for eg: delete a["asdsdfdgs"] instead of delete a
+		delete currentEvent.children[paths.shift()];
+		return true;
+	}
 	
 	get actions() {
 		return this._actions;
@@ -77,11 +119,13 @@ class Trace {
 		});
 	}
 
-	static toJSON(trace) {
-		let traceJson = {};
-		traceJson.traceName = trace.traceName;
-		traceJson.locationUrls = trace.locationUrls;
-		traceJson.actions = trace.actions.toString();
+	toJSON() {
+		let traceJson = [];
+		traceJson.push('"traceName": ' + JSON.stringify(this.traceName));
+		traceJson.push('"uriPattern": ' + JSON.stringify(this.uriPattern));
+		traceJson.push('"uriRegex": ' + JSON.stringify(this.uriRegex));
+		//traceJson.push('"locationUrls": ' + JSON.stringify(this.locationUrls));
+		traceJson.push('"actions": ' + JSON.stringify(this.actions));
 		/*
 		let actions = [];
 		for (let eventId of actions) {
@@ -92,37 +136,46 @@ class Trace {
 			traceJson.actions = event.info();
 		}
 		*/
-		return JSON.stringify(traceJson);
+		return "{" + traceJson.join(",") + "}";
 	}
 
 	static fromJSON(traceJson) {
-		if (traceJson instanceof string) {
+		if (typeof(traceJson) == "string") {
 			traceJson = JSON.parse(traceJson);
 		}
 		if (!traceJson) {
 			return;
 		}
-		let trace = new Trace(traceName=traceJson.traceName);
-		for (let lUrl of traceJson.locationUrls) {
-			trace.locationUrls = lUrl;
-		}
+		let trace = new Trace(traceJson.traceName);
+		trace.uriPattern = traceJson.uriPattern;
+		trace.uriRegex = traceJson.uriRegex;
+
+		//for (let lUrl of traceJson.locationUrls) {
+		//	trace.locationUrls = lUrl;
+		//}
 		let actions = [];
-		for (let eventId of traceJson.actions) {
+		for (let eventId in traceJson.actions) {
 			actions.push(traceJson.actions[eventId]); 
 		}
 
 		while(actions.length > 0) {
 			let event = actions.pop();
 			let tracerEvent = new TracerEvent(
-								eventName=event.name, 
-								actionName=event.actionName,
-								resourceUrl=event.locationUrl,
-								parentId=event.parentId,
-								eventId=event.id,
-								eventOrder=eventOrder
+								event.name, 
+								event.actionName,
+								event.locationUrl,
+								event.parentId,
+								event.id,
+								event.eventOrder
 							  );
+			tracerEvent.selectors = event.selectors;
+
+			tracerEvent.repeat = event.repeat;
+
 			trace.addAction(tracerEvent);
-			actions.push(event.children());
+			for (let eventId in event.children) {
+				actions.push(event.children[eventId]);
+			}
 		}
 		return trace;
 	}
@@ -130,16 +183,17 @@ class Trace {
 
 class TracerEvent {
 	constructor(eventName=null, actionName=null, resourceUrl=null, parentId=null, eventId=null, eventOrder=null) {
-		Event.eventCount += 1;
+		TracerEvent.eventCount += 1;
 		this.id = (!eventId) ? this.createEventID() : eventId;
-		this.name = (!eventName) ? "Event " + Event.eventCount.toString() : eventName;
+		this.name = (!eventName) ? "Event " + TracerEvent.eventCount.toString() : eventName;
 		this.actionName = (!actionName) ? "click" : actionName;
 		this.selectors = [];
 		this.parentId = (!parentId) ? this.id : parentId;
 		var resUrl = (!resourceUrl) ? Trace.getResourceUrlFromStorage() : resourceUrl;
 		this.locationURL = resUrl;
 		this.children = {};
-		this.eventOrder = (!eventOrder) ? Event.eventCount : eventOrder;
+		this.eventOrder = (!eventOrder) ? TracerEvent.eventCount : eventOrder;
+		this.repeat = {};
 	}
 
 	get info() {
@@ -154,16 +208,17 @@ class TracerEvent {
 		event.locationURL = this.locationURL;
 		event.children = this.children;
 		event.eventOrder = this.eventOrder;
+		event.repeat = this.repeat;
 		return event;
 	}
 
 	createEventID() {
-		return Event.eventCount.toString() + Math.random().toString(16).slice(2);
+		return TracerEvent.eventCount.toString() + Math.random().toString(16).slice(2);
 	}
 }
 
 // the starting resource is the first/default event. the others start from 2. 
-Event.eventCount = 0;
+TracerEvent.eventCount = 0;
 var tempNewEvents = {};
 var trace = new Trace();
 
@@ -178,7 +233,7 @@ function createNewEventMetadata(parentId) {
 }
 
 function createStartingResourceTrace(resUrl) {
-
+	TracerEvent.eventCount = 0;
 	let event = new TracerEvent(eventName="Starting Resource",
 		actionName="load",
 		resourceUrl=resUrl);
@@ -302,10 +357,10 @@ function createSelectorTable(selectorInfo, eventId, readonly=false) {
     selector.push('</thead>');
     selector.push('<tbody>');
     for (let sel of selectorInfo) {
-    	selector.push('<tr id="selector_info_'+eventId+'_'+sel.selOrder+'">');
-	    selector.push('<td title="Choose Preference"><input type="radio" value="'+sel.selOrder+'" name="selector_info_preferrence_' + eventId + '" ');
-	    if (!sel.selectorPreferred && sel.selectorType == "CSSSelector") {
-	    	selector.push('checked');
+    	selector.push('<tr id="selector_info_'+eventId+'_'+sel.selectorOrder+'">');
+	    selector.push('<td title="Choose Preference"><input type="radio" value="'+sel.selectorOrder+'" name="selector_info_preference_' + eventId + '" ');
+	    if (sel.selectorPreferred) {
+	    	selector.push("checked");
 	    }
 	    else if (!sel.selectorPreferred && readonly) {
 	    	selector.push('disabled');
@@ -347,11 +402,11 @@ function createModalEventViewer(event) {
 
     modal.push('<div class="form-group">');
     modal.push('<span class="text-muted text-capitalize">'+event.actionName+':&nbsp;</span>');
-    if (!event.repeat) {
+    if (!event.repeat.hasOwnProperty("until")) {
 		modal.push('<span>Once</span>');
     }
     else {
-		modal.push('<span>Until ' + event.repeat.until + '</span>');
+		modal.push('<span>Until <br/>' + JSON.stringify(event.repeat.until, null, 2) + '</span>');
     }
 	modal.push('</div>');
 
@@ -460,6 +515,9 @@ function createEventButtons(event, width_class) {
 	event_ui.push('rel="tooltip" data-toggle="modal"');
 	event_ui.push('data-target="#action_modal_' + event.id + '"');
 	event_ui.push('>');
+	if (event.repeat.hasOwnProperty("until")) {
+		event_ui.push('<span class="adjust-line-height fas fa-retweet float-right"></span>');
+	}
 	event_ui.push(event.name);
 	event_ui.push('</button>');
 	event_ui.push('<button type="button" class="btn btn-default btn-success tracer-bg" id="create_event_for_'+event.id+'" title="Create Event"><span class="fas fa-plus-square"></span></button>');
@@ -472,6 +530,55 @@ function createEventButtons(event, width_class) {
 
 	event_ui.push('</div>');
 	return event_ui.join("");
+}
+
+function createModalDownloadViewer(resource_url) {
+
+	let modal = [];
+	modal.push('<div class="modal fade" id="download_modal" tabindex="-1" role="dialog">');
+    modal.push('<div class="modal-dialog" role="document"><div class="modal-content"><div class="modal-header bg-dark">');
+    modal.push('<h5 class="modal-title text-white" id="myModalLabel">Download Trace</h5>');
+    modal.push('<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span class="text-white" aria-hidden="true">&times;</span></button>');
+    modal.push('</div>');
+    // END HEADER
+
+    // modal BODY
+    modal.push('<div class="modal-body" style="font-size: 1.3em;">');
+    modal.push('<form>');
+
+    // NAME
+    modal.push('<div class="form-group">');
+    modal.push('<label for="trace_name">Trace Name</label>');
+    modal.push('<input type="text" class="form-control form-control-sm" id="trace_name" placeholder="Enter a name for this trace" value="" />');
+    modal.push('</div>');
+
+    // URI Pattern
+    modal.push('<div class="form-group">');
+    modal.push('<label for="trace_name">Trace URI Pattern</label>');
+    /*
+    modal.push('<button type="button" class="btn tracer-bg" data-toggle="popover" data-container="body" data-placement="bottom" ');
+    modal.push('data-content="This Trace will be applied for all resources matching the URL pattern provided in the input box for <b>Trace URI Pattern</b>. Use <code>[]</code> to match any portion of a URL that must be generalized. ');
+    modal.push('<br/><br/>');
+    modal.push('For eg, to apply this trace for all repositories of an institution\'s Github account <code>https://github.com/mementoweb/</code>, enter:<br/>');
+    modal.push('<code>https://github.com/mementoweb/[py-memento-client]/</code><br/><br/>');
+    modal.push('Or, to apply this trace for any GitHub repository owned by any user or institution, enter:<br/>');
+    modal.push('<code>https://github.com/[mementoweb]/[py-mement-client]/</code><br/>">');
+    //modal.push('<span class="far fa-question-circle" aria-hidden="true"></span>');
+    modal.push('data-content="Test">')
+    modal.push('popover</button>');
+    */
+    modal.push('<input type="text" class="form-control form-control-sm" id="trace_uri_pattern" placeholder="Enter the URI pattern to apply for this trace" value="'+resource_url+'" />');
+    modal.push('</div>');
+    modal.push('</form>');
+
+    modal.push('<div class="btn-toolbar justify-content-center">');
+    modal.push('<div class="btn-group" role="group">');
+    modal.push('<button type="button" class="btn btn-primary" id="download_as_json" data-dismiss="modal">Download</button>');
+    modal.push("</div>");
+    modal.push("</div>");
+
+    modal.push('</div></div></div></div>');
+    return modal.join("");
 }
 
 function getWidthForEvent(event, depth) {
@@ -521,6 +628,7 @@ function createEventUI(actions) {
 		$("#event_ui").append(ui.join(""));
 		attachCreateDeleteButtonEvents(currEvent);
     	attachSelectorMouseOverEvents(event);
+    	
     	let sortedChildren = getActionsByEventOrder(currEvent.children);
 		for (let event of sortedChildren) {
 			stack.push(event);
@@ -546,6 +654,12 @@ function attachCreateDeleteButtonEvents(event) {
 			attachSaveEventListener(newEventData.id);
 		});
 	});
+	$("#delete_event_" + event.id).on("click", function() {
+
+		trace.deleteEvent(event.id);
+		createEventUI(trace.actions);
+	});
+
 }
 
 function attachModalCloseEvents(eventId) {
@@ -560,12 +674,58 @@ function attachModalCloseEvents(eventId) {
 function attachSaveEventListener(eventId) {
 	$("#save_" + eventId).on("click", function() {
 		let currentEvent = tempNewEvents[eventId];
+		let eventName = $("#action_name_"+eventId).val();
+		currentEvent.name = eventName;
+		let selectorPref = $("input[name=selector_info_preference_"+eventId+"]:checked").val();
+		let prefSelector = null;
+		for (let i=0; i<currentEvent.selectors.length; i++) {
+			if (selectorPref == i) {
+				currentEvent.selectors[i].selectorPreferred = true;
+				prefSelector = currentEvent.selectors[i];
+			}
+			else {
+				currentEvent.selectors[i].selectorPreferred = false;
+			}
+		}
+
+		let selected_action = $("#click_until_" + eventId + " :selected").text();
+
+		if (selected_action == "Until") {
+			let exit_cond = $("input[name=exit_condition_"+eventId+"]:checked").val();
+			let until = {};
+			if (exit_cond == 1) {
+				until.selectorType = "selectorPreferred";
+				until.selectorCondition = "disabled";
+			}
+			else if (exit_cond == 2) {
+				until.selectorType = "selectorPreferred";
+				until.selectorCondition = "not_exists";
+			}
+			else if (exit_cond == 3) {
+				until.selectorType = "resource_url";
+				until.selectorCondition = "changes";
+			}
+			else if (exit_cond == 4) {
+				until.selectorType = "new_resource_count";
+				until.selectorCondition = "equals";
+				until.selectorValue = $("exit_condition_num_res_archived_" + eventId).val();
+			}
+			currentEvent.repeat = {};
+			currentEvent.repeat.until = until;
+
+		}
+		else {
+			currentEvent.repeat = {};
+		}
+
 		trace.addAction(currentEvent);
 		let event = {};
-		let startingEventId = Object.keys(trace.actions)[0];
-		let resUrl = trace.actions[startingEventId].locationURL;
-		event[resUrl] = trace;
-		chrome.storage.local.set(event);
+		getStoredEvents().then( (items) => {
+			let resource_url = items[1];
+			event[resource_url] = trace.toJSON();
+			console.log(event);
+			chrome.storage.local.set(event);
+		});
 	});
 }
 
@@ -607,7 +767,6 @@ function attachClickUntilExitConditions(eventId) {
 		if (selected_action == "Until") {
 			let exit_condition = createClickExitCondition(eventId);
 			$("#exit_condition_" + eventId).html(exit_condition);
-			attachClickExitConditionEvents(eventId);
 		}
 		else if (selected_action == "Once") {
 			$("#exit_condition_" + eventId).empty();
@@ -615,20 +774,10 @@ function attachClickUntilExitConditions(eventId) {
 	});
 }
 
-function attachClickExitConditionEvents(eventId) {
-	$("input[name=exit_condition_"+eventId+"]").on("change", function() {
-		let checked_condition = $(this).val();
-		let cond = checked_condition;
-		if (checked_condition == "4") {
-			cond = $("exit_condition_num_res_archived_" + eventId).val();
-		}
-	});
-}
-
 function getItemsFromStorage() {
 	return new Promise( (resolve, reject) => {
 		chrome.storage.local.get(null, function(items) {
-			console.log(items);
+			//console.log(items);
 			chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
 				var resource_url = tabs[0].url;
 				let value = {};
@@ -685,25 +834,118 @@ var getStoredEvents = cache(getItemsFromStorage);
 
 ( function() {
 	getStoredEvents()
-		.then( (items) => {
-			let events = items[0];
-			let resource_url = items[1];
-			cachedEvents = events;
-			cachedResourceURL = resource_url;
+	.then( (items) => {
+		let events = items[0];
+		let resource_url = items[1];
 
-			console.log(events);
-			if (!items.trace || !items.trace.actions) {
-				items.trace = trace;
-				chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-					let resUrl = tabs[0].url;
-					items.trace.addAction(createStartingResourceTrace(resUrl));
-					createEventUI(items.trace.actions, resource_url);
-				});
-			}
-			else {
-				createEventUI(items.trace.actions, resource_url);
-			}
+		console.log(events);
+		if (events !== "") {
+			trace = Trace.fromJSON(events);
+		}
+
+		if (!trace || Object.keys(trace._actions).length === 0) {
+			trace = createStartingResourceTrace(resource_url);
+		}
+		console.log(trace);
+		createEventUI(trace.actions, resource_url);
+
+		let downloadModal = createModalDownloadViewer(resource_url);
+		$("#download_modal_container").append(downloadModal);
+
+		$("#download_trace").on("click", function() {
+			$("#download_modal").modal("show");
 		});
+		$("#download_as_json").on("click", function() {
+
+			trace.traceName = $("#trace_name").val();
+			trace.uriPattern = $("#trace_uri_pattern").val();
+
+			let reUrl = new URL(trace.uriPattern);
+			let urlPattern = reUrl.protocol + "//" + reUrl.hostname;
+
+			let reUrlPath = reUrl.pathname;
+			let paths = reUrlPath.split("/");
+			for (let path of paths) {
+				if (path === "") {
+					continue;
+				}
+				urlPattern += "\/";
+				if (path[0] == "[" && path[path.length-1] == "]") {
+					urlPattern += "([^\/]+)";
+				}
+				else {
+					urlPattern += path;
+				}
+			}
+
+			if (urlPattern.endsWith("]+)") && !reUrl.search) {
+				urlPattern += "?(/$|$)";
+			}
+			else if (reUrl.search) {
+				let urlParams = reUrl.search;
+				urlParams = urlParams.replace("?", "\\?");
+				let params = urlParams.split("=");
+				for (let param of params) {
+					if (param === "") {
+						continue;
+					}
+					if (param[0] == "[" && param[param.length-1] == "]") {
+						urlPattern += "(.*)?(&|$)";
+					}
+					else {
+						urlPattern += param;
+					}
+					urlPattern += "=";
+				}
+			}
+			//urlPattern += reUrl.search;
+			//trace.uriRegex = urlPattern.substring(0, urlPattern.length-1);
+			trace.uriRegex = urlPattern;
+			console.log(trace.toJSON());
+
+			var jsonTrace = trace.toJSON();
+			var blob = new Blob([jsonTrace], {type: "application/json"});
+			var res = new URL(resource_url);
+
+			var downloading = chrome.downloads.download({
+				filename: res.hostname + ".json",
+				url: window.URL.createObjectURL(blob),
+				saveAs: true,
+				conflictAction: 'overwrite'
+			});
+			
+		});
+
+		/*
+		chrome.webRequest.onCompleted.addListener( function(details) {
+		    console.log(details);
+		    if (details.tabId === undefined) {
+		        return;
+		    }
+		    if (details.type != "main_frame") {
+		        return;
+		    }
+		    if (details.statusLine.search("HTTP/1.1 30") == 0) {
+		        return;
+		    }
+		}, {urls: ["<all_urls>"]},
+["responseHeaders"]);
+		*/
+	});
+
+
+	$("#start_over").on("click", function() {
+		getStoredEvents().then( (items) => {
+			let resource_url = items[1];
+			event[resource_url] = "";
+			chrome.storage.local.set(event);
+			trace = new Trace();
+			trace = createStartingResourceTrace(resource_url);
+			console.log(trace);
+			createEventUI(trace.actions, resource_url);
+		});
+	});
+
 })();
 
 

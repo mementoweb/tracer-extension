@@ -12,6 +12,8 @@
     	"storage",
     	"tabs",
         "webRequest",
+        "downloads",
+        "history",
     	"<all_urls>"
     ],
     "content_scripts": [

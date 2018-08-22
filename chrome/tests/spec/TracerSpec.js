@@ -8,6 +8,7 @@ describe ("Tracer Test Suite", function() {
 		this.trace = {
 	"userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3431.0 Safari/537.36",
 	"resourceURL": "https://www.slideshare.net/hvdsomp/paul-evan-peters-lecture",
+	"traceName": "test",
 
 	"actions": {
 		"azxdfds22d": {
@@ -26,6 +27,7 @@ describe ("Tracer Test Suite", function() {
 			"children": {
 				"bgsjlwp335n": {
 					"id": "bgsjlwp335n",
+					"parentId": "azxdfds22d",
 					"name": "Next Slide",
 					"uriPattern": null,
 					"selectorId": ["div.j-next-btn.arrow-right"],
@@ -43,6 +45,7 @@ describe ("Tracer Test Suite", function() {
 				},
 				"7654bfdgbnjk": {
 					"id": "7654bfdgbnjk",
+					"parentId": "azxdfds22d",
 					"name": "Next Slide",
 					"uriPattern": null,
 					"selectorId": ["li.j-related-item a:first-of-type"],
@@ -60,6 +63,7 @@ describe ("Tracer Test Suite", function() {
 					"children": {
 						"hjs33fj0um": {
 							"id": "hjs33fj0um",
+							"parentId": "7654bfdgbnjk",
 							"name": "Stats Tab",
 							"uriPattern": null,
 							"selectorId": ["a.j-stats-tab"],
@@ -108,13 +112,11 @@ describe ("Tracer Test Suite", function() {
 		var success = testTrace.addAction(startingEvent);
 		expect(success).toBe(true);
 		expect(testTrace.actions[startingEvent.id]).toEqual(startingEvent);
-		console.log(startingEvent);
 
 		let event1 = new TracerEvent(eventName="Event 1",
 										actionName="click",
 										resourceUrl=null,
 										parentId=startingEvent.id);
-		console.log(event1);
 		var success1 = testTrace.addAction(event1);
 		expect(success1).toBe(true);
 
@@ -127,6 +129,19 @@ describe ("Tracer Test Suite", function() {
 
 		expect(testTrace.getTracerEvent(event2.id));
 
+	});
+
+	it("shortest path", function() {
+		let testTrace = Trace.fromJSON(this.trace);
+		let path = testTrace.getShortestPath("7654bfdgbnjk");
+		expect(path).toBe("azxdfds22d.7654bfdgbnjk");
+	});
+
+	it("delete event", function() {
+		let testTrace = Trace.fromJSON(this.trace);
+		let path = testTrace.deleteEvent("7654bfdgbnjk");
+		expect(path).toBe(true);
+		console.log(testTrace);
 	});
 
 });

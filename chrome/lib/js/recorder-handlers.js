@@ -25,11 +25,9 @@ Recorder.addEventHandler('clickAt', 'click', function(event) {
     //console.log(event);
     if (event.button == 0 && !preventClick && event.isTrusted) {
         if (!preventClickTwice) {
-            /*
             if (event.target.nodeName == "A") {
                 event.preventDefault();
             }
-            */
             this.record(event, "click");
             //var arrayTest = this.locatorBuilders.buildAll(event.target);
             preventClickTwice = true;

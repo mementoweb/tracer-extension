@@ -43,6 +43,17 @@
   .w-90 {
     width: 90%!important;
   }
+  .footer {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    height: 70px;
+    line-height: 70px;
+  }
+  .adjust-line-height {
+    line-height: 1.5;
+    font-size: 1.2rem;
+  }
 </style>
 
 </head>
@@ -53,6 +64,16 @@
   <h5 class="p-3">Events for this Trace:</h5>
   
   <div id="event_ui" class="row justify-content-end"></div>
+
+  <div id="download_modal_container" class="row"></div>
+
+  <div class="footer">
+  <div class="btn-group justify-content-center w-90" role="group">
+    <button class="btn btn-default btn-primary tracer-bg" id="download_trace">Download Trace</button>
+
+    <button class="btn btn-default btn-danger tracer-bg" id="start_over">Start Over</button>
+  </div>
+  </div>
 </div>
   
   <script src="lib/js/jquery.min.js"></script>

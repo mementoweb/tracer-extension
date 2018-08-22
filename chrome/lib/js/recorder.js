@@ -93,45 +93,35 @@ class Recorder {
             this.window.document.removeEventListener(eventName, this.eventListeners[eventKey], capture);
         }
         delete this.eventListeners;
-        if (this.prev) {
-            this.prev.style["border"] = "none";
-            this.prev = undefined;
-        }
+        $(".highlighter").remove();
     }
 
     showMouseOverBox(event) {
-
-        if (event.target === document.body ||
-            (this.prev && this.prev === event.target)) {
-            this.prev.style["border"] = "none";
-            document.body.style["border"] = "none";
+        let overlay = $(".highlighter");
+        if (event.target === document.body) {
+            overlay.hide();
             return;
         }
-        if (this.prev) {
-            this.prev.style["border"] = "none";
-            this.prev = undefined;
-        }
         if (event.target) {
-            let tgt = event.target;
-            this.prev = tgt;
-            /*
-            var tgt_table_parent = this.getParentBlock(tgt);
-            if (!tgt_table_parent) {
-                this.prev = tgt;
-            }
-            else {
-                this.prev = tgt_table_parent;
-            }
-            */
-            this.prev.style["border"] = "3px solid black";
-            this.prev.style["z-index"] = "10000";
+            let tgt = $(event.target);
+
+            let offset = tgt.offset();
+            let width = tgt.outerWidth();
+            let height = tgt.outerHeight();
+
+            overlay.css({
+                top: offset.top,
+                left: offset.left,
+                width: width,
+                height: height
+            }).show();
         }
     }
 
     getFrameLocation() {
         let currentWindow = window;
         let currentParentWindow;
-        let frameLocation = ""
+        let frameLocation = "";
         while (currentWindow !== window.top) {
             currentParentWindow = currentWindow.parent;
             for (let idx = 0; idx < currentParentWindow.frames.length; idx++)
@@ -351,8 +341,8 @@ class Recorder {
         selectors.elementSelectors.push({
             "selector": sel,
             "selectorType": "CSSSelector",
-            "selOrder": selCount++,
-            "selectorPreferred": false
+            "selectorOrder": selCount++,
+            "selectorPreferred": true
         });
 
         for (var i of paths) {
@@ -362,7 +352,7 @@ class Recorder {
             selectors.elementSelectors.push({
                 "selector": i,
                 "selectorType": "XPath",
-                "selOrder": selCount++,
+                "selectorOrder": selCount++,
                 "selectorPreferred": false
             });
         }
