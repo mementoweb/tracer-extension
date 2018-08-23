@@ -875,90 +875,6 @@ var getStoredEvents = cache(getItemsFromStorage);
 			console.log(urlPattern);
 			trace.uriRegex = urlPattern;
 
-			/*
-			let reHostname = "";
-			let reUrl = null;
-			try {
-				reUrl = new URL(trace.uriPattern);
-				reHostname = reUrl.hostname;
-			}
-			catch (error) {
-				// hostname likely has square brackets...
-
-				let rsUrl = new URL(resource_url);
-				if (trace.uriPattern.search(rsUrl.hostname) < 0) {
-					let traceHost = trace.uriPattern.replace(rsUrl.protocol+"//", "");
-					let pathStart = traceHost.search("/") + rsUrl.protocol.length + 2;
-					traceHost = traceHost.split("/")[0];
-					let hostParts = traceHost.split(".");
-					let validHost = "";
-					let reHost = [];
-
-					for (let path of hostParts) {
-						if (path[0] == "[" && path[path.length-1] == "]") {
-							reHost.push("([^\/]+)");
-						}
-						else {
-							reHost.push(path);
-							validHost += path;
-						}
-					}
-					reHostname = reHost.join(".");
-					console.log(reHostname);
-					let validUrl = rsUrl.protocol + "//" + validHost + trace.uriPattern.substring(pathStart);
-					console.log(validUrl);
-					reUrl = new URL(validUrl);
-				}
-
-			}
-			let urlPattern = reUrl.protocol + "//" + reHostname;
-
-			let reUrlPath = reUrl.pathname;
-			let genPathStart = reUrlPath.search(/\[/);
-			let genPathEnd = reUrlPath.search(/\]/);
-			let genPath = reUrlPath.substring(genPathStart, genPathEnd);
-			console.log(genPath);
-
-			let paths = reUrlPath.split("/");
-			for (let path of paths) {
-				if (path === "") {
-					continue;
-				}
-				urlPattern += "\/";
-				if (path[0] == "[" && path[path.length-1] == "]") {
-					urlPattern += "([^\/]+)";
-				}
-				else {
-					urlPattern += path;
-				}
-			}
-
-			urlPattern = urlPattern.replace(/\[(.*)\]/, "([^\/]+)");
-
-			if (urlPattern.endsWith("]+)") && !reUrl.search) {
-				urlPattern += "?(/$|$)";
-			}
-			else if (reUrl.search) {
-				let urlParams = reUrl.search;
-				urlParams = urlParams.replace("?", "\\?");
-				let params = urlParams.split("=");
-				for (let param of params) {
-					if (param === "") {
-						continue;
-					}
-					if (param[0] == "[" && param[param.length-1] == "]") {
-						urlPattern += "(.*)?(&|$)";
-					}
-					else {
-						urlPattern += param;
-					}
-					urlPattern += "=";
-				}
-			}
-			//urlPattern += reUrl.search;
-			//trace.uriRegex = urlPattern.substring(0, urlPattern.length-1);
-			trace.uriRegex = urlPattern;
-			*/
 			console.log(trace.toJSON());
 
 			var jsonTrace = trace.toJSON();
@@ -971,24 +887,7 @@ var getStoredEvents = cache(getItemsFromStorage);
 				saveAs: true,
 				conflictAction: 'overwrite'
 			});
-			
 		});
-
-		/*
-		chrome.webRequest.onCompleted.addListener( function(details) {
-		    console.log(details);
-		    if (details.tabId === undefined) {
-		        return;
-		    }
-		    if (details.type != "main_frame") {
-		        return;
-		    }
-		    if (details.statusLine.search("HTTP/1.1 30") == 0) {
-		        return;
-		    }
-		}, {urls: ["<all_urls>"]},
-["responseHeaders"]);
-		*/
 	});
 
 
