@@ -11,7 +11,7 @@ class Trace {
 	}
 
 	set locationUrls(locationUrl) {
-		this._locationUrls[locationURL] = locationUrl;
+		this._locationUrls[locationUrl] = locationUrl;
 	}
 
 	get locationUrls() {
@@ -64,20 +64,33 @@ class Trace {
 
 	getShortestPath(eventId) {
 		let path = [];
-		let queue = [];
-		for (let eid in this._actions) {
-			queue.push(this._actions[eid]);
-		}
-		while (queue.length > 0) {
-			let currentEvent = queue.shift();
-			path.push(currentEvent.id);
+		let stack = [];
+		//let visited = [];
 
+		for (let eid in this._actions) {
+			stack.push(this._actions[eid]);
+		}
+		let startingResourceId = stack[0].id;
+
+		while (stack.length > 0) {
+			let currentEvent = stack.pop();
+			//visited.push(currentEvent.id);
+
+			if (currentEvent.id !== eventId && Object.keys(currentEvent.children).length === 0) {
+				path = [];
+				continue;
+			}
+
+			path.push(currentEvent.id);
 			if (currentEvent.id == eventId) {
+				if (path[0] !== startingResourceId) {
+					path.unshift(startingResourceId);
+				}
 				return path.join(".");
 			}
 			else {
 				for (let eid in currentEvent.children) {
-					queue.push(currentEvent.children[eid]);
+					stack.push(currentEvent.children[eid]);
 				}
 			}
 		}
@@ -90,9 +103,15 @@ class Trace {
 			return false;
 		}
 		let paths = path.split(".");
+		console.log(paths);
 		let currentEvent = this._actions[paths.shift()];
 
+		console.log(currentEvent);
+
 		while (paths.length > 1) {
+			console.log(currentEvent);
+			console.log(paths);
+
 			currentEvent = currentEvent.children[paths.shift()];
 		}
 		// JS wouldn't delete a top level variable, so we are deleting 
@@ -121,22 +140,21 @@ class Trace {
 
 	toJSON() {
 		let traceJson = [];
-		traceJson.push('"traceName": ' + JSON.stringify(this.traceName));
-		traceJson.push('"uriPattern": ' + JSON.stringify(this.uriPattern));
-		traceJson.push('"uriRegex": ' + JSON.stringify(this.uriRegex));
-		//traceJson.push('"locationUrls": ' + JSON.stringify(this.locationUrls));
-		traceJson.push('"actions": ' + JSON.stringify(this.actions));
-		/*
-		let actions = [];
-		for (let eventId of actions) {
-			actions.push(actions[eventId]);
+		traceJson.push('"traceName": ' + JSON.stringify(this.traceName, null, 2));
+		if (this.uriPattern) {
+			traceJson.push('"uriPattern": ' + JSON.stringify(this.uriPattern, null, 2));
 		}
-		while (actions.length > 0) {
-			let event = actions.pop();
-			traceJson.actions = event.info();
+		else {
+			traceJson.push('"uriPattern": ""');
 		}
-		*/
-		return "{" + traceJson.join(",") + "}";
+		if (this.uriRegex) {
+			traceJson.push('"uriRegex": ' + JSON.stringify(this.uriRegex, null, 2));
+		}
+		else {
+			traceJson.push('"uriPattern": ""');
+		}
+		traceJson.push('"actions": ' + JSON.stringify(this.actions, null, 2));
+		return "{\n" + traceJson.join(",") + "\n}";
 	}
 
 	static fromJSON(traceJson) {
@@ -190,7 +208,7 @@ class TracerEvent {
 		this.selectors = [];
 		this.parentId = (!parentId) ? this.id : parentId;
 		var resUrl = (!resourceUrl) ? Trace.getResourceUrlFromStorage() : resourceUrl;
-		this.locationURL = resUrl;
+		this.locationUrl = resUrl;
 		this.children = {};
 		this.eventOrder = (!eventOrder) ? TracerEvent.eventCount : eventOrder;
 		this.repeat = {};
@@ -205,7 +223,7 @@ class TracerEvent {
 		event.selector = this.selector;
 		event.parentId = this.parentId;
 		event.uriPattern = this.uriPattern;
-		event.locationURL = this.locationURL;
+		event.locationUrl = this.locationUrl;
 		event.children = this.children;
 		event.eventOrder = this.eventOrder;
 		event.repeat = this.repeat;
@@ -500,7 +518,7 @@ function createModalEventForm(event) {
     return modal.join("");
 }
 
-function createEventButtons(event, width_class) {
+function createEventButtons(event, width_class, insertCopiedTrace, outLink) {
 	let startingResource = false;
 	if (event.actionName == "load") {
 		startingResource = true;
@@ -518,9 +536,18 @@ function createEventButtons(event, width_class) {
 	if (event.repeat.hasOwnProperty("until")) {
 		event_ui.push('<span class="adjust-line-height fas fa-retweet float-right"></span>');
 	}
+	if (outLink) {
+		event_ui.push('<span class="adjust-line-height fas fa-external-link-alt float-right"></span>');
+
+	}
 	event_ui.push(event.name);
 	event_ui.push('</button>');
-	event_ui.push('<button type="button" class="btn btn-default btn-success tracer-bg" id="create_event_for_'+event.id+'" title="Create Event"><span class="fas fa-plus-square"></span></button>');
+	if (!insertCopiedTrace) {
+		event_ui.push('<button type="button" class="btn btn-default btn-success tracer-bg" id="create_event_for_'+event.id+'" title="Create Event"><span class="fas fa-plus-square"></span></button>');
+	}
+	else {
+		event_ui.push('<button type="button" class="btn btn-default btn-warning tracer-bg" id="insert_event_for_'+event.id+'" title="Insert Copied Event"><span class="fas fa-clone"></span></button>');
+	}
 	if (event.eventOrder == 1) {
 		event_ui.push('<button type="button" class="btn btn-default btn-danger tracer-bg" id="delete_event_'+event.id+'" title="Delete Event" disabled><span class="fas fa-trash-alt"></span></button>');
 	}
@@ -606,10 +633,19 @@ function getActionsByEventOrder(actions) {
 	return sortedEvents;
 }
 
-function createEventUI(actions) {
+function createEventUI(actions, resource_url, copiedTrace) {
 	// DFS
 	let stack = [];
 	let eventIds = Object.keys(actions);
+
+	let insertCopiedTrace = false;
+	if (copiedTrace) { 
+		let copiedEventIds = Object.keys(copiedTrace._actions);
+		let copiedResourceUrl = copiedTrace._actions[copiedEventIds[0]].locationUrl;
+		if (copiedResourceUrl !== resource_url) {
+			insertCopiedTrace = true;
+		}
+	}
 
 	for (let eventId of eventIds) {
 		stack.push(actions[eventId]);
@@ -622,11 +658,19 @@ function createEventUI(actions) {
 	while (stack.length > 0) {
 		let ui = [];
 		let currEvent = stack.pop();
+		let outLink = false;
+
+		if (resource_url && currEvent.locationUrl && resource_url !== currEvent.locationUrl) {
+			outLink = true;
+		}
 		let widthClass = getWidthForEvent(currEvent, parentIds[currEvent.id]);
-		ui.push(createEventButtons(currEvent, widthClass));
+		ui.push(createEventButtons(currEvent, widthClass, insertCopiedTrace, outLink));
 		ui.push(createModalEventViewer(currEvent));
 		$("#event_ui").append(ui.join(""));
 		attachCreateDeleteButtonEvents(currEvent);
+		if (insertCopiedTrace) {
+			attachInsertButtonEvent(currEvent, copiedTrace);
+		}
     	attachSelectorMouseOverEvents(event);
     	
     	let sortedChildren = getActionsByEventOrder(currEvent.children);
@@ -637,10 +681,57 @@ function createEventUI(actions) {
 	}
 }
 
+function attachInsertButtonEvent(event, copiedTrace) {
+	$("#insert_event_for_"+event.id).on("click", function() {
+		let stack = [];
+		let currentEvent = trace.getTracerEvent(event.id);
+		let newChildren = currentEvent.children;
+		let copiedStartingResourceId = Object.keys(copiedTrace._actions)[0];
+		let copiedStartingResource = copiedTrace._actions[copiedStartingResourceId];
+		let copiedChildEventIds = Object.keys(copiedStartingResource.children);
+		let parentIds = {};
+		for (let eventId of copiedChildEventIds) {
+			stack.push(copiedStartingResource.children[eventId]);
+		}
+		while (stack.length > 0) {
+			let copiedEvent = stack.pop();
+			let newParentId = null;
+			if (parentIds.hasOwnProperty(copiedEvent.parentId)) {
+				newParentId = parentIds[copiedEvent.parentId];
+			}
+			else {
+				newParentId = event.id;
+			}
+			let newEvent = new TracerEvent(
+				eventName=copiedEvent.name,
+				actionName=copiedEvent.actionName,
+				resourceUrl=(!copiedEvent.locationUrl) ? copiedStartingResource.locationUrl : copiedEvent.locationUrl,
+				parentId=newParentId
+			);
+			newEvent.selectors = copiedEvent.selectors;
+			newEvent.repeat = copiedEvent.repeat;
+
+			parentIds[copiedEvent.id] = newEvent.id;
+			trace.addAction(newEvent);
+			for (let eventId of Object.keys(copiedEvent.children)) {
+				stack.push(copiedEvent.children[eventId]);
+			}
+		}
+		let newEvent = {};
+		getStoredEvents().then( (items) => {
+			let resource_url = items[1];
+			//console.log(trace.toJSON());
+			newEvent[resource_url] = trace.toJSON();
+			newEvent["copiedTrace"] = null;
+			chrome.storage.local.set(newEvent);
+			createEventUI(trace.actions, resource_url, null);
+		});
+	});
+}
+
 function attachCreateDeleteButtonEvents(event) {
 	$("#create_event_for_" + event.id).on("click", function() {
 		getStoredEvents().then( (items) => {
-
 			let events = items[0];
 			//let eventCount = Object.keys(items.events.actions).length;
 			let newEventData = createNewEventMetadata(event.id);
@@ -654,10 +745,16 @@ function attachCreateDeleteButtonEvents(event) {
 			attachSaveEventListener(newEventData.id);
 		});
 	});
-	$("#delete_event_" + event.id).on("click", function() {
 
-		trace.deleteEvent(event.id);
-		createEventUI(trace.actions);
+	$("#delete_event_" + event.id).on("click", function() {
+		chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+			trace.deleteEvent(event.id);
+			let resource_url = tabs[0].url;
+			let newEvent = {};
+			newEvent[resource_url] = trace.toJSON();
+			chrome.storage.local.set(newEvent);
+			createEventUI(trace.actions, resource_url, null);
+		});
 	});
 
 }
@@ -666,8 +763,8 @@ function attachModalCloseEvents(eventId) {
 	$("#action_modal_"+eventId).on("hidden.bs.modal", function() {
 		chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
 			chrome.tabs.sendMessage(tabs[0].id, {detachRecorder: true});
+			createEventUI(trace.actions, tabs[0].url, null);
 		});
-		createEventUI(trace.actions);
 	});
 }
 
@@ -723,7 +820,7 @@ function attachSaveEventListener(eventId) {
 		getStoredEvents().then( (items) => {
 			let resource_url = items[1];
 			event[resource_url] = trace.toJSON();
-			console.log(event);
+			//console.log(event);
 			chrome.storage.local.set(event);
 		});
 	});
@@ -777,15 +874,18 @@ function attachClickUntilExitConditions(eventId) {
 function getItemsFromStorage() {
 	return new Promise( (resolve, reject) => {
 		chrome.storage.local.get(null, function(items) {
-			//console.log(items);
 			chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
 				var resource_url = tabs[0].url;
 				let value = {};
+				let copiedTrace = null;
 
 				if (items.hasOwnProperty(resource_url)) {
 					value = items[resource_url];
 				}
-				resolve([value, resource_url]);
+				if (items.hasOwnProperty("copiedTrace") && items["copiedTrace"] !== null) {
+					copiedTrace = items["copiedTrace"];
+				}
+				resolve([value, resource_url, copiedTrace]);
 			});
 		});
 	});
@@ -830,15 +930,17 @@ function cache(fn) {
 	};
 }
 
-var getStoredEvents = cache(getItemsFromStorage);
 
-( function() {
-	getStoredEvents()
-	.then( (items) => {
-		let events = items[0];
+function init(onTabActivated) {
+	getStoredEvents().then( (items) => {
 		let resource_url = items[1];
+		let events = items[0];
+		let copiedTraceJson = items[2];
 
-		console.log(events);
+		let copiedTrace = Trace.fromJSON(copiedTraceJson);
+		//console.log(copiedTrace);
+
+		trace = new Trace();
 		if (events !== "") {
 			trace = Trace.fromJSON(events);
 		}
@@ -846,65 +948,133 @@ var getStoredEvents = cache(getItemsFromStorage);
 		if (!trace || Object.keys(trace._actions).length === 0) {
 			trace = createStartingResourceTrace(resource_url);
 		}
-		console.log(trace);
-		createEventUI(trace.actions, resource_url);
 
-		let downloadModal = createModalDownloadViewer(resource_url);
-		$("#download_modal_container").append(downloadModal);
+		//console.log(trace);
+		let copiedResourceUrl = null;
+		if (copiedTrace) {
+			let copiedStartingResourceId = Object.keys(copiedTrace._actions)[0];
+			copiedResourceUrl = copiedTrace._actions[copiedStartingResourceId].locationUrl;
+		}
+		if (copiedResourceUrl !== resource_url) {
+			$("#copy_trace").text("Copy Trace");
+			$("#copy_trace").removeClass("btn-danger");
+			$("#copy_trace").addClass("btn-success");
+			createEventUI(trace.actions, resource_url, copiedTrace);
+		}
+		else if (copiedResourceUrl == resource_url) {
+			createEventUI(trace.actions, resource_url, null);
+			$("#copy_trace").text("Clear Copied Trace");
+			$("#copy_trace").addClass("btn-danger");
+			$("#copy_trace").removeClass("btn-success");
+		}
+		if (onTabActivated && !copiedTraceJson) {
+			return;
+		}
 
-		$("#download_trace").on("click", function() {
-			$("#download_modal").modal("show");
-		});
-		$("#download_as_json").on("click", function() {
+		if (!onTabActivated) {
 
-			trace.traceName = $("#trace_name").val();
-			trace.uriPattern = $("#trace_uri_pattern").val();
+			let downloadModal = createModalDownloadViewer(resource_url);
+			$("#download_modal_container").append(downloadModal);
 
-			let uriParts = trace.uriPattern.split("?");
+			$("#download_trace").on("click", function() {
+				$("#download_modal").modal("show");
+			});
+			$("#download_as_json").on("click", function() {
 
-			let urlPattern = uriParts[0].replace(/\[(.*?)\]/g, "([^\/]+?)");
+				//console.log(trace);
+				trace.traceName = $("#trace_name").val();
+				trace.uriPattern = $("#trace_uri_pattern").val();
 
-			console.log(uriParts);
-			if (urlPattern.endsWith("]+?)") && !uriParts[1]) {
-				urlPattern += "?(/$|$)";
-			}
-			else if (uriParts[1]) {
-				urlPattern += "\\?" + uriParts[1].replace(/\[(.*?)\]/g, "(.+?)?(&|$)");
-			}
-			urlPattern += "$";
-			console.log(urlPattern);
-			trace.uriRegex = urlPattern;
+				let uriParts = trace.uriPattern.split("?");
 
-			console.log(trace.toJSON());
+				let urlPattern = uriParts[0].replace(/\[(.*?)\]/g, "([^\/]+?)");
 
-			var jsonTrace = trace.toJSON();
-			var blob = new Blob([jsonTrace], {type: "application/json"});
-			var res = new URL(resource_url);
+				//console.log(uriParts);
+				if (urlPattern.endsWith("]+?)") && !uriParts[1]) {
+					urlPattern += "?(/$|$)";
+				}
+				else if (uriParts[1]) {
+					urlPattern += "\\?" + uriParts[1].replace(/\[(.*?)\]/g, "(.+?)?(&|$)");
+				}
+				urlPattern += "$";
+				//console.log(urlPattern);
+				trace.uriRegex = urlPattern;
 
-			var downloading = chrome.downloads.download({
-				filename: res.hostname + ".json",
-				url: window.URL.createObjectURL(blob),
-				saveAs: true,
-				conflictAction: 'overwrite'
+				console.log(trace.toJSON());
+
+				var jsonTrace = trace.toJSON();
+				var blob = new Blob([jsonTrace], {type: "application/json"});
+				var res = new URL(resource_url);
+
+				var downloading = chrome.downloads.download({
+					filename: res.hostname + ".json",
+					url: window.URL.createObjectURL(blob),
+					saveAs: true,
+					conflictAction: 'overwrite'
+				});
+			});
+		}
+	});
+
+	if (!onTabActivated) {
+		$("#copy_trace").on("click", function() {
+			chrome.storage.local.get(null, function(items) {
+
+				if (items["copiedTrace"] && $("#copy_trace").hasClass("btn-danger")) {
+					let eve = {};
+					eve["copiedTrace"] = null;
+					chrome.storage.local.set(eve);
+
+					$("#copy_trace").text("Copy Trace");
+					$("#copy_trace").removeClass("btn-danger");
+					$("#copy_trace").addClass("btn-success");
+				}
+				else {
+					items["copiedTrace"] = trace.toJSON();
+					chrome.storage.local.set(items);
+
+					$("#copy_trace").text("Clear Copied Trace");
+					$("#copy_trace").addClass("btn-danger");
+					$("#copy_trace").removeClass("btn-success");
+
+					$("#alert_placeholder").html("The events in this trace were copied. You can now go to any existing trace and insert these events as part of that trace.");
+					$("#alert_placeholder").removeClass("d-none");
+					setTimeout(function() {
+						$("#alert_placeholder").alert("close");
+					}, 5000);
+				}
 			});
 		});
-	});
 
-
-	$("#start_over").on("click", function() {
-		getStoredEvents().then( (items) => {
-			let resource_url = items[1];
-			event[resource_url] = "";
-			chrome.storage.local.set(event);
-			trace = new Trace();
-			trace = createStartingResourceTrace(resource_url);
-			console.log(trace);
-			createEventUI(trace.actions, resource_url);
+		$("#start_over").on("click", function() {
+			chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+				let resource_url = tabs[0].url;
+				let event = {};
+				//let resource_url = items[1];
+				event[resource_url] = "";
+				//console.log(event);
+				chrome.storage.local.set(event);
+				trace = new Trace();
+				trace = createStartingResourceTrace(resource_url);
+				createEventUI(trace.actions, resource_url);
+			});
 		});
-	});
+	}
 
+}
+
+//var getStoredEvents = cache(getItemsFromStorage);
+var getStoredEvents = getItemsFromStorage;
+
+
+( function() {
+	init();
 })();
 
+chrome.tabs.onActivated.addListener( (tabInfo) => {
+	//createEventUI(trace.actions);
+	init(true);
+});
 
 chrome.runtime.onMessage.addListener( function(msg, sender) {
 	if (msg.chosenSelectors) {

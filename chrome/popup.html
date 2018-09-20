@@ -67,9 +67,12 @@
 
   <div id="download_modal_container" class="row"></div>
 
+    <div id="alert_placeholder" class="alert alert-success alert-dismissible d-none" role="alert" style="bottom: 100px; position: fixed;"></div>
   <div class="footer">
   <div class="btn-group justify-content-center w-90" role="group">
     <button class="btn btn-default btn-primary tracer-bg" id="download_trace">Download Trace</button>
+
+    <button class="btn btn-default btn-success tracer-bg" id="copy_trace" title="Copy the steps in this trace to insert in as part of another trace.">Copy Trace</button>
 
     <button class="btn btn-default btn-danger tracer-bg" id="start_over">Start Over</button>
   </div>

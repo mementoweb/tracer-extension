@@ -43,7 +43,6 @@ Recorder.addEventHandler('mouseOver', 'mouseover', function(event) {
 
 /*
 Recorder.addEventHandler('type', 'input', function(event) {
-    //console.log(event.target);
     typeTarget = event.target;
 });
 

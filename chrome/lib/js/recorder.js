@@ -72,7 +72,6 @@ class Recorder {
                     }
                 }
                 this.window.document.addEventListener(eventName, listener, capture);
-                //console.log(listener);
                 this.eventListeners[eventKey] = listener;
             }
             register.call(this);
@@ -89,7 +88,6 @@ class Recorder {
             var eventInfo = this.parseEventKey(eventKey);
             var eventName = eventInfo.eventName;
             var capture = eventInfo.capture;
-            //console.log(this.eventListeners[eventKey]);
             this.window.document.removeEventListener(eventName, this.eventListeners[eventKey], capture);
         }
         delete this.eventListeners;
@@ -132,94 +130,6 @@ class Recorder {
                 }
         }
         return frameLocation = "root" + frameLocation;
-    }
-
-    serializeToTracerJSON(params) {
-        var items = params[0];
-        var unique_selector = params[1];
-        var selector_type = params[2];
-        var baseURI = params[3];
-        var frameLocation = params[4];
-
-        return new Promise( (resolve, reject) => {
-            var events = {};
-            var select_all_links = false;
-
-            if (items.select_all_links) {
-                //clickedElement = getParentBlock(event.target);
-                select_all_links = true;
-            }
-
-            if (items.hasOwnProperty(baseURI) && items[baseURI] !== null && items[baseURI].hasOwnProperty("json") && items[baseURI]["json"] !== null) {
-                events = items[baseURI]["json"];
-            }
-            else {
-                events.action_count = 0;
-                events.resource_url = baseURI;
-                events.user_agent = userAgent;
-                events.portal_url_match = items[baseURI]["generic_resource_uri"];
-                events.actions = [];
-            }
-
-            events.action_count += 1;
-            var action = {};
-            var user_action = "";
-            var repeat_until = {};
-            if (items.automate_repeated_clicks) {
-                user_action = "repeated_click";
-                repeat_until = getRepeatUntilTerms(events.resource_url, unique_selector, items);
-            }
-            else if (items.automate_page_navigation) {
-                user_action = "page_nav";
-                repeat_until = getRepeatUntilTerms(events.resource_url, unique_selector, items);
-            }
-            else if (items.start_recording || items.select_all_links) {
-                user_action = "click";
-            }
-
-            action = {
-                "value": unique_selector, 
-                "type": selector_type,
-                "action": user_action,
-                "action_order": events.action_count,
-                "id": Math.random().toString(16).slice(2),
-                "name": ""
-            };
-            if (select_all_links) {
-                if (selector_type == "CSSSelector") {
-                    action.value += " a";
-                }
-                else if (selector_type == "XPath") {
-                    action.value += "//a";
-                }   
-                if (!items.automate_repeated_clicks) {
-                    action.action_apply = "once";
-                }
-                else if (!items.automate_page_navigation) {
-                    action.action_apply = "all";
-                }
-                else {
-                    action.action_apply = "all";
-                }
-            }
-
-            if (Object.keys(repeat_until).length > 0) {
-                action["repeat_until"] = repeat_until;
-            }
-            events.actions.push(action);
-
-            var eve = {};
-
-            if (items.hasOwnProperty(baseURI) && items[baseURI] !== null) {
-                eve[baseURI] = items[baseURI];
-            }
-            else {
-                eve[baseURI] = {};
-            }
-            console.log(events);
-            eve[baseURI]["json"] = events;
-            resolve(eve);
-        });
     }
 
     readFromStorage(event) {
@@ -299,7 +209,6 @@ class Recorder {
             return true;
         }
         var xele = this.getElementByXPath(path);
-        //console.log(xele);
         if (ele.length == 1 || !xele) {
             return true;
         }
