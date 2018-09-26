@@ -187,6 +187,7 @@ class Trace {
 								event.eventOrder
 							  );
 			tracerEvent.selectors = event.selectors;
+			tracerEvent.frameIndex = event.frameIndex;
 
 			tracerEvent.repeat = event.repeat;
 
@@ -212,6 +213,7 @@ class TracerEvent {
 		this.children = {};
 		this.eventOrder = (!eventOrder) ? TracerEvent.eventCount : eventOrder;
 		this.repeat = {};
+		this.frameIndex = "";
 	}
 
 	get info() {
@@ -227,6 +229,7 @@ class TracerEvent {
 		event.children = this.children;
 		event.eventOrder = this.eventOrder;
 		event.repeat = this.repeat;
+		event.frameIndex = this.frameIndex;
 		return event;
 	}
 
@@ -907,13 +910,14 @@ function updateEventModalUI(event) {
     $("#save_"+eventId).removeClass("d-none");
 }
 
-function updateEvent(selectors) {
+function updateEvent(selectors, frameIndex) {
 	let eventId = selectors.eventId;
 	if (!tempNewEvents.hasOwnProperty(eventId)) {
 		return false;
 	}
 	tempNewEvents[eventId].selectors = selectors.elementSelectors;
 	tempNewEvents[eventId].id = eventId;
+	tempNewEvents[eventId].frameIndex = frameIndex;
 	return tempNewEvents[eventId];
 }
 
@@ -1041,7 +1045,7 @@ function init(onTabActivated) {
 					$("#alert_placeholder").removeClass("d-none");
 					setTimeout(function() {
 						$("#alert_placeholder").alert("close");
-					}, 5000);
+					}, 10000);
 				}
 			});
 		});
@@ -1071,14 +1075,22 @@ var getStoredEvents = getItemsFromStorage;
 	init();
 })();
 
+chrome.windows.onFocusChanged.addListener( () => {
+	init(true);
+});
+
 chrome.tabs.onActivated.addListener( (tabInfo) => {
-	//createEventUI(trace.actions);
 	init(true);
 });
 
 chrome.runtime.onMessage.addListener( function(msg, sender) {
 	if (msg.chosenSelectors) {
-		let newEvent = updateEvent(msg.chosenSelectors);
+		let newEvent = updateEvent(msg.chosenSelectors, msg.frameIndex);
 		updateEventModalUI(newEvent);
+	}
+	else if (msg.detachRecorder) {
+		chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+			chrome.tabs.sendMessage(tabs[0].id, {detachRecorder: true});
+		});
 	}
 });

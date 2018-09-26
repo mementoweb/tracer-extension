@@ -296,9 +296,13 @@ class Recorder {
         */
         let selectors = this.getElementSelectors(event);
 
-        chrome.runtime.sendMessage({"chosenSelectors": selectors});
+        chrome.runtime.sendMessage({
+            "chosenSelectors": selectors,
+            "frameIndex": this.frameLocation
+        });
 
-        this.detach();
+        chrome.runtime.sendMessage({detachRecorder: true});
+        //recorder.detach();
     }
 }
 
