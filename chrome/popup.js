@@ -971,6 +971,9 @@ function init(onTabActivated) {
 			$("#copy_trace").addClass("btn-danger");
 			$("#copy_trace").removeClass("btn-success");
 		}
+
+		$(".modal-backdrop").remove();
+
 		if (onTabActivated && !copiedTraceJson) {
 			return;
 		}
