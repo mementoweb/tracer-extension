@@ -151,7 +151,7 @@ class Trace {
 			traceJson.push('"uriRegex": ' + JSON.stringify(this.uriRegex, null, 2));
 		}
 		else {
-			traceJson.push('"uriPattern": ""');
+			traceJson.push('"uriRegex": ""');
 		}
 		traceJson.push('"actions": ' + JSON.stringify(this.actions, null, 2));
 		return "{\n" + traceJson.join(",") + "\n}";
@@ -262,7 +262,7 @@ function createStartingResourceTrace(resUrl) {
 	return trace;
 }
 
-function createEventTypeChoices(event_id, action_type) {
+function createEventTypeChoices(event_id, action_type, asStr=true) {
 	let modal = [];
     modal.push('<div class="form-group">');
     modal.push('<label for="action_type_' + event_id +'">Type</label>');
@@ -291,10 +291,15 @@ function createEventTypeChoices(event_id, action_type) {
     modal.push('</select>');
 
     modal.push('</div>');
-	return modal.join("");	
+    if (asStr) {
+		return modal.join("");
+	}
+	else {
+		return modal;
+	}
 }
 
-function createClickExitCondition(event_id) {
+function createClickExitCondition(event_id, asStr=true) {
 	let modal = [];
 	//modal.push('<div class="card mb-3">');
     modal.push('<div class="header">Exit Condition</div>');
@@ -333,7 +338,12 @@ function createClickExitCondition(event_id) {
     modal.push('</div>');
     //modal.push('</div>');
     //modal.push('</div>');
-	return modal.join("");	
+    if (asStr) {
+		return modal.join("");	
+	}
+	else {
+		return modal;
+	}
 }
 
 function createSelectAllLinksRepeatChoices(event_id) {
@@ -934,6 +944,38 @@ function cache(fn) {
 	};
 }
 
+function createRegExpForPattern(patternUrl) {
+	let uriParts = patternUrl.split("?");
+
+	//let urlRegExp = uriParts[0].replace(/\[(.*?)\]/g, "([^\/]+?)");
+	//console.log(uriParts[0].search("\\[\\["));
+	let urlRegExp = uriParts[0].replace(/\[\[(.*?)\]\]/g, "(.+?)");
+	//console.log(urlRegExp);
+	urlRegExp = urlRegExp.replace(/\[(.*?)\]/g, "([^\/]+?)");
+	//console.log(urlRegExp);
+
+	//if (urlRegExp.endsWith("]+?)") && !uriParts[1]) {
+	//	urlRegExp += "?(/$|$)";
+	//}
+	if (uriParts[1]) {
+		urlRegExp += "\\?";
+		let urlParams = "";
+
+		if (uriParts[1].search("\\[\\[") >= 0) {
+			urlParams = uriParts[1].replace(/\[\[(.*?)\]\]/g, "(.+?)");
+		}
+		else if (uriParts[1].search("\\[") >= 0) {
+			urlParams = uriParts[1].replace(/\[(.*?)\]/g, "(.+?)?(&|$)");
+		}
+		else {
+			urlParams = uriParts[1];
+		}
+		urlRegExp += urlParams;
+	}
+	urlRegExp += "$";
+	return urlRegExp;
+}
+
 
 function init(onTabActivated) {
 	getStoredEvents().then( (items) => {
@@ -992,20 +1034,7 @@ function init(onTabActivated) {
 				trace.traceName = $("#trace_name").val();
 				trace.uriPattern = $("#trace_uri_pattern").val();
 
-				let uriParts = trace.uriPattern.split("?");
-
-				let urlPattern = uriParts[0].replace(/\[(.*?)\]/g, "([^\/]+?)");
-
-				//console.log(uriParts);
-				if (urlPattern.endsWith("]+?)") && !uriParts[1]) {
-					urlPattern += "?(/$|$)";
-				}
-				else if (uriParts[1]) {
-					urlPattern += "\\?" + uriParts[1].replace(/\[(.*?)\]/g, "(.+?)?(&|$)");
-				}
-				urlPattern += "$";
-				//console.log(urlPattern);
-				trace.uriRegex = urlPattern;
+				trace.uriRegex = createRegExpForPattern(trace.uriPattern);
 
 				console.log(trace.toJSON());
 
