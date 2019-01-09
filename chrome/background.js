@@ -13,4 +13,3 @@ chrome.webRequest.onHeadersReceived.addListener( function(details) {
 	});
 }, {urls: ["<all_urls>"]}, ["responseHeaders"]);
 */
-

@@ -103,15 +103,9 @@ class Trace {
 			return false;
 		}
 		let paths = path.split(".");
-		console.log(paths);
 		let currentEvent = this._actions[paths.shift()];
 
-		console.log(currentEvent);
-
 		while (paths.length > 1) {
-			console.log(currentEvent);
-			console.log(paths);
-
 			currentEvent = currentEvent.children[paths.shift()];
 		}
 		// JS wouldn't delete a top level variable, so we are deleting 
@@ -818,11 +812,11 @@ function attachSaveEventListener(eventId) {
 			else if (exit_cond == 4) {
 				until.selectorType = "new_resource_count";
 				until.selectorCondition = "equals";
-				until.selectorValue = $("exit_condition_num_res_archived_" + eventId).val();
+				let selVal = parseInt($("#exit_condition_num_res_archived_" + eventId).val());
+				until.selectorValue = (!selVal) ? 0 : selVal;
 			}
 			currentEvent.repeat = {};
 			currentEvent.repeat.until = until;
-
 		}
 		else {
 			currentEvent.repeat = {};
@@ -977,7 +971,7 @@ function createRegExpForPattern(patternUrl) {
 }
 
 
-function init(onTabActivated) {
+function popupInit(onTabActivated) {
 	getStoredEvents().then( (items) => {
 		let resource_url = items[1];
 		let events = items[0];
@@ -1104,19 +1098,29 @@ var getStoredEvents = getItemsFromStorage;
 
 
 ( function() {
-	init();
+	popupInit();
 })();
 
+
 chrome.windows.onFocusChanged.addListener( () => {
-	init(true);
+	popupInit(true);
 });
 
 chrome.tabs.onActivated.addListener( (tabInfo) => {
-	init(true);
+	popupInit(true);
 });
 
+
+/*
 chrome.runtime.onMessage.addListener( function(msg, sender) {
+	console.log("popup: ");
+	console.log(msg);
+	console.log(sender);
 	if (msg.chosenSelectors) {
+		console.log(tempNewEvents);
+		if (tempNewEvents[msg.chosenSelectors.eventId]) {
+			return;
+		}
 		let newEvent = updateEvent(msg.chosenSelectors, msg.frameIndex);
 		updateEventModalUI(newEvent);
 	}
@@ -1124,5 +1128,24 @@ chrome.runtime.onMessage.addListener( function(msg, sender) {
 		chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
 			chrome.tabs.sendMessage(tabs[0].id, {detachRecorder: true});
 		});
+	}
+});
+*/
+
+
+chrome.storage.onChanged.addListener((changes) => {
+	if (changes.clickedSelector && changes.clickedSelector.newValue.chosenSelectors) {
+		let val = changes.clickedSelector.newValue;
+		let eventId = val.chosenSelectors.eventId;
+		if (tempNewEvents[eventId] && tempNewEvents[eventId].selectors.length > 0) {
+			console.log("dup event");
+			return;
+		}
+		let newEvent = updateEvent(val.chosenSelectors, val.frameIndex);
+		updateEventModalUI(newEvent);
+		chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+			chrome.tabs.sendMessage(tabs[0].id, {detachRecorder: true});
+		});
+		chrome.storage.local.set({"clickedSelector": {}});
 	}
 });

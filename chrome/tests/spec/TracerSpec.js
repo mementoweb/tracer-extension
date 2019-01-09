@@ -217,6 +217,8 @@ describe ("Tracer Test Suite", function() {
 		let matched_urls = {
 			"https://en.wikipedia.org/wiki/Wikipedia:WikiProject_Women_in_Red/Missing_articles_by_occupation/Researchers_-_Prototype?oldid=863945640": "https://[en].wikipedia.org/wiki/[[Wikipedia:WikiProject_Women_in_Red/Missing_articles_by_occupation/Researchers_-_Prototype]]?oldid=[863945640]",
 
+			"https://figshare.com/articles/Segmental_Dynamics_of_Entangled_Poly_ethylene_oxide_Melts_Deviations_from_the_Tube-Reptation_Model/7458695": "https://figshare.com/articles/[Beyond_Throughput_a_4G_LTE_Dataset_with_Channel_and_Context_Metrics]/[6153497]",
+
 			"https://en.wikipedia.org/wiki/Wikipedia:WikiProject_Women_in_Red/Missing_articles_by_occupation/Researchers_-_Prototype": "https://en.wikipedia.org/wiki/Wikipedia:WikiProject_Women_in_Red/[[Missing_articles_by_occupation/Researchers_-_Prototype]]",
 
 			"https://en.wikipedia.org/wiki/Wikipedia:WikiProject_Women_in_Red/Missing_articles_by_occupation/Researchers_-_Prototype?ssk=dfdfsfsafafaf": "https://en.wikipedia.org/wiki/Wikipedia:WikiProject_Women_in_Red/[[Missing_articles_by_occupation/Researchers_-_Prototype]]",
@@ -236,7 +238,9 @@ describe ("Tracer Test Suite", function() {
 			"https://github.com/gorilla/mux/issues/410":
 			"https://github.com/[gorilla]/[mux]/issues/[410]",
 
-			"https://github.com/gorilla/mux/issues/410#issue-370367509": "https://github.com/[gorilla]/[mux]/issues/[410#issue-370367509]"
+			"https://github.com/gorilla/mux/issues/410#issue-370367509": "https://github.com/[gorilla]/[mux]/issues/[410#issue-370367509]",
+
+			"https://www.heise.de/": "https://www.heise.de/$"
 		};
 		let unmatched_urls = {
 			"https://wikipedia.org/wiki/Wikipedia:WikiProject_Women_in_Red/Missing_articles_by_occupation/Researchers_-_Prototype?oldid=863945640": "https://[en].wikipedia.org/wiki/[[Wikipedia:WikiProject_Women_in_Red/Missing_articles_by_occupation/Researchers_-_Prototype]]?oldid=[863945640]",
@@ -284,16 +288,20 @@ describe ("Tracer Test Suite", function() {
 
 			"https://github.com/gorilla/mux/issue/410#issue-370367509": "https://github.com/[gorilla]/[mux]/issues/[410#issue-370367509]",
 
-			"https://github.com/gorilla/mux/issues/": "https://github.com/[gorilla]/[mux]/issues/[410#issue-370367509]"
+			"https://github.com/gorilla/mux/issues/": "https://github.com/[gorilla]/[mux]/issues/[410#issue-370367509]",
+
+			"https://www.heise.de/articles/": "https://www.heise.de/$",
+			"https://www.heise.de": "https://www.heise.de/$"
 		};
 
 		for (let url in matched_urls) {
-			//console.log("checking matching regex for: " + url);
-			//console.log("with pattern: " + matched_urls[url]);
+			console.log("checking matching regex for: " + url);
+			console.log("with pattern: " + matched_urls[url]);
 			let r = createRegExpForPattern(matched_urls[url]);
-			//console.log(r);
+			console.log(r);
 			let re = new RegExp(r);
 			res = re.exec(url);
+			console.log(res);
 			expect(res.length).toBeGreaterThan(0);
 		}
 		

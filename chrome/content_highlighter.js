@@ -59,8 +59,8 @@ function hideAllHighlighters() {
 
 }
 
-chrome.runtime.onMessage.addListener( function(msg, sender) {
 
+chrome.runtime.onMessage.addListener( function(msg, sender) {
 	if (msg.attachRecorder && msg.attachRecorder.length > 0) {
 		let highlighter = createHighlighter();
 		document.body.appendChild(highlighter);

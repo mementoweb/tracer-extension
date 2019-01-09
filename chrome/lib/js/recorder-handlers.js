@@ -22,7 +22,6 @@ Recorder.inputTypes = ["text", "password", "file", "datetime", "datetime-local",
 var preventClickTwice = false;
 var preventClick = false;
 Recorder.addEventHandler('clickAt', 'click', function(event) {
-    //console.log(event);
     if (event.button == 0 && !preventClick && event.isTrusted) {
         if (!preventClickTwice) {
             if (event.target.nodeName == "A") {

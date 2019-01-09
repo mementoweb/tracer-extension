@@ -296,12 +296,21 @@ class Recorder {
         */
         let selectors = this.getElementSelectors(event);
 
+        let val = {};
+        val["clickedSelector"] = {
+            "chosenSelectors": selectors,
+            "frameIndex": this.frameLocation,
+            "detachRecorder": true
+        };
+        chrome.storage.local.set(val);
+        /*
         chrome.runtime.sendMessage({
             "chosenSelectors": selectors,
             "frameIndex": this.frameLocation
         });
 
         chrome.runtime.sendMessage({detachRecorder: true});
+        */
         //recorder.detach();
     }
 }
