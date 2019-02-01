@@ -321,6 +321,7 @@ function createClickExitCondition(event_id, asStr=true) {
     modal.push('<span class="form-control form-control-sm">Navigated to a New Resource</span>');
     modal.push('</div>');
 
+    /*
     modal.push('<div class="input-group"><div class="input-group-prepend"><div class="input-group-text">');
     modal.push('<input type="radio" value="4" name="exit_condition_' + event_id + '" />');
     modal.push('</div>');
@@ -328,7 +329,7 @@ function createClickExitCondition(event_id, asStr=true) {
     modal.push('</div>');
     modal.push('<span class="form-control form-control-sm">Resources Archived</span>');
     modal.push('</div>');
-
+	*/
     modal.push('</div>');
     //modal.push('</div>');
     //modal.push('</div>');
@@ -1030,9 +1031,11 @@ function popupInit(onTabActivated) {
 
 				trace.uriRegex = createRegExpForPattern(trace.uriPattern);
 
-				console.log(trace.toJSON());
 
 				var jsonTrace = trace.toJSON();
+				
+				console.log(jsonTrace);
+
 				var blob = new Blob([jsonTrace], {type: "application/json"});
 				var res = new URL(resource_url);
 

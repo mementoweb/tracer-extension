@@ -1,7 +1,7 @@
 {
     "name": "Memento Tracer",
     "description" : "Record Interactions to provide a template for Web Archiving a Web Page",
-    "version": "0.2.3",
+    "version": "0.2.4",
     "manifest_version": 2,
     "browser_action": {
     	"default_icon": "logo.png",
