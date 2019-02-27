@@ -6,5 +6,6 @@ This browser extension records a user's interactions with a webpage so that it c
 To install the extension in the Chrome Browser:
 
 * Clone this repo.
-* Enable "Developer mode" on the top right corner of the chrome extensions tab: chrome://extensions/
-* Click "Load unpacked extension" button from the extension page, and navigate to the cloned repository and open the folder named `chrome`. 
+* Open the chrome extensions tab: chrome://extensions/, and enable "Developer mode" at the top right corner.
+* Click "Load unpacked extension" button from the extension page, and navigate to the cloned repository and open the folder named `chrome`.
+* The extension should now be installed and it can be opened by clicking on the Tracer icon next to the browser's address bar.  
